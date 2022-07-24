@@ -1,0 +1,191 @@
+---
+title: "Section 5. Heart Disease Example"
+author: "Yi Li"
+date: "22/07/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(regmedint)
+# install.packages("cheese")
+require(cheese)
+# dataset 'heart_disease':
+# A: Cholesterol
+# M: BP
+# Y: HeartDisease
+```
+
+## 1. Pre-process data to convert all variables to numeric type
+```{r}
+age <- heart_disease$Age
+sex_M <- ifelse(heart_disease$Sex == "Male", 1, 0)
+pain_typical <- ifelse(heart_disease$ChestPain == "Typical angina", 1, 0)
+pain_atypical <- ifelse(heart_disease$ChestPain == "Atypical angina", 1, 0)
+pain_non <- ifelse(heart_disease$ChestPain == "Non-anginal pain", 1, 0)
+bp <- heart_disease$BP
+cholesterol <- heart_disease$Cholesterol
+bloodsugar_T <- ifelse(heart_disease$BloodSugar == "TRUE", 1, 0)
+maximumHR <- heart_disease$MaximumHR
+HD <- ifelse(heart_disease$HeartDisease == "Yes", 1, 0)
+
+heart.disease <- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pain_non, 
+                                  bp, cholesterol, bloodsugar_T, maximumHR, HD)
+
+```
+
+## 2. Fit regmedint()
+### (1) No EMM terms
+```{r}
+regmedint_noEMM <- regmedint(data = heart.disease,
+                             yvar = "HD",
+                             avar = "cholesterol",
+                             mvar = "bp",
+                             cvar = c("age", "sex_M", "pain_non",
+                                     "bloodsugar_T", "maximumHR"),
+                             emm_ac_mreg = NULL, 
+                             emm_ac_yreg = NULL, 
+                             emm_mc_yreg = NULL, 
+                             eventvar = NULL,
+                             a0 = summary(heart.disease$cholesterol)[2],
+                             a1 = summary(heart.disease$cholesterol)[5],
+                             m_cde = mean(heart.disease$bp),
+                             c_cond = c(mean(heart.disease$age), 0, 0, 
+                                        mean(heart.disease$bloodsugar_T),
+                                        mean(heart.disease$maximumHR)),
+                             mreg = "linear",
+                             yreg = "loglinear",
+                             interaction = TRUE,
+                             casecontrol = FALSE,
+                             na_omit = TRUE)
+summary(regmedint_noEMM)
+```
+
+
+### (2) EMM by age
+(a) Age is set to the 1st quartile:
+```{r}
+regmedint_age1 <- regmedint(data = heart.disease,
+                            yvar = "HD",
+                            avar = "cholesterol",
+                            mvar = "bp",
+                            cvar = c("age", "sex_M", "pain_non",
+                                     "bloodsugar_T", "maximumHR"),
+                            emm_ac_mreg = c("age"), 
+                            emm_ac_yreg = c("age"), 
+                            emm_mc_yreg = c("age"), 
+                            eventvar = NULL,
+                            a0 = summary(heart.disease$cholesterol)[2],
+                            a1 = summary(heart.disease$cholesterol)[5],
+                            m_cde = mean(heart.disease$bp),
+                            c_cond = c(summary(heart.disease$age)[2], 
+                                       0, 0, 
+                                       mean(heart.disease$bloodsugar_T),
+                                       mean(heart.disease$maximumHR)),
+                            mreg = "linear",
+                            yreg = "loglinear",
+                            interaction = TRUE,
+                            casecontrol = FALSE,
+                            na_omit = TRUE)
+summary(regmedint_age1)
+```
+
+
+(b) Age is set to the 3rd quartile:
+```{r}
+regmedint_age2 <- regmedint(data = heart.disease,
+                            yvar = "HD",
+                            avar = "cholesterol",
+                            mvar = "bp",
+                            cvar = c("age", "sex_M", "pain_non",
+                                     "bloodsugar_T", "maximumHR"),
+                            emm_ac_mreg = c("age"), 
+                            emm_ac_yreg = c("age"), 
+                            emm_mc_yreg = c("age"), 
+                            eventvar = NULL,
+                            a0 = summary(heart.disease$cholesterol)[2],
+                            a1 = summary(heart.disease$cholesterol)[5],
+                            m_cde = mean(heart.disease$bp),
+                            c_cond = c(summary(heart.disease$age)[5], 
+                                       0, 0, 
+                                       mean(heart.disease$bloodsugar_T),
+                                       mean(heart.disease$maximumHR)),
+                            mreg = "linear",
+                            yreg = "loglinear",
+                            interaction = TRUE,
+                            casecontrol = FALSE,
+                            na_omit = TRUE)
+summary(regmedint_age2)
+```
+
+
+
+### (3) EMM by sex
+(a) Sex is set to male:
+```{r}
+regmedint_sex1 <- regmedint(data = heart.disease,
+                            yvar = "HD",
+                            avar = "cholesterol",
+                            mvar = "bp",
+                            cvar = c("age", "sex_M", "pain_non",
+                                     "bloodsugar_T", "maximumHR"),
+                            emm_ac_mreg = c("sex_M"), 
+                            emm_ac_yreg = c("sex_M"), 
+                            emm_mc_yreg = c("sex_M"), 
+                            eventvar = NULL,
+                            a0 = summary(heart.disease$cholesterol)[2],
+                            a1 = summary(heart.disease$cholesterol)[5],
+                            m_cde = mean(heart.disease$bp),
+                            c_cond = c(summary(heart.disease$age)[2], 
+                                       1, 0, 
+                                       mean(heart.disease$bloodsugar_T),
+                                       mean(heart.disease$maximumHR)),
+                            mreg = "linear",
+                            yreg = "loglinear",
+                            interaction = TRUE,
+                            casecontrol = FALSE,
+                            na_omit = TRUE)
+summary(regmedint_sex1)
+```
+
+(b) Sex is set to female:
+```{r}
+regmedint_sex2 <- regmedint(data = heart.disease,
+                            yvar = "HD",
+                            avar = "cholesterol",
+                            mvar = "bp",
+                            cvar = c("age", "sex_M", "pain_non",
+                                     "bloodsugar_T", "maximumHR"),
+                            emm_ac_mreg = c("sex_M"), 
+                            emm_ac_yreg = c("sex_M"), 
+                            emm_mc_yreg = c("sex_M"), 
+                            eventvar = NULL,
+                            a0 = summary(heart.disease$cholesterol)[2],
+                            a1 = summary(heart.disease$cholesterol)[5],
+                            m_cde = mean(heart.disease$bp),
+                            c_cond = c(summary(heart.disease$age)[2], 
+                                       0, 0, 
+                                       mean(heart.disease$bloodsugar_T),
+                                       mean(heart.disease$maximumHR)),
+                            mreg = "linear",
+                            yreg = "loglinear",
+                            interaction = TRUE,
+                            casecontrol = FALSE,
+                            na_omit = TRUE)
+summary(regmedint_sex2)
+```
+
+
+
+
+
+
+
+
+
+
