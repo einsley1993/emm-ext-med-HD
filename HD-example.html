@@ -365,6 +365,15 @@ pre code {
 </div>
 
 
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──</code></pre>
+<pre><code>## ✓ ggplot2 3.3.5     ✓ purrr   0.3.4
+## ✓ tibble  3.1.4     ✓ dplyr   1.0.7
+## ✓ tidyr   1.1.3     ✓ stringr 1.4.0
+## ✓ readr   2.0.1     ✓ forcats 0.5.1</code></pre>
+<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()</code></pre>
 <pre class="r"><code>library(regmedint)</code></pre>
 <pre><code>## Warning: package &#39;regmedint&#39; was built under R version 4.1.2</code></pre>
 <pre class="r"><code># install.packages(&quot;cheese&quot;)
@@ -376,20 +385,15 @@ require(cheese)</code></pre>
 # Y: HeartDisease</code></pre>
 <div id="pre-process-data-to-convert-all-variables-to-numeric-type" class="section level2">
 <h2>1. Pre-process data to convert all variables to numeric type</h2>
-<pre class="r"><code>age &lt;- heart_disease$Age
-sex_M &lt;- ifelse(heart_disease$Sex == &quot;Male&quot;, 1, 0)
-pain_typical &lt;- ifelse(heart_disease$ChestPain == &quot;Typical angina&quot;, 1, 0)
-pain_atypical &lt;- ifelse(heart_disease$ChestPain == &quot;Atypical angina&quot;, 1, 0)
-pain_non &lt;- ifelse(heart_disease$ChestPain == &quot;Non-anginal pain&quot;, 1, 0)
-bp &lt;- heart_disease$BP
-cholesterol &lt;- heart_disease$Cholesterol
-# fasting blood sugar &gt; 120 mg/dl:
-bloodsugar_T &lt;- ifelse(heart_disease$BloodSugar == TRUE, 1, 0) 
-maximumHR &lt;- heart_disease$MaximumHR
-HD &lt;- ifelse(heart_disease$HeartDisease == &quot;Yes&quot;, 1, 0)
-
-heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pain_non, 
-                                  bp, cholesterol, bloodsugar_T, maximumHR, HD)</code></pre>
+<pre class="r"><code>heart.disease &lt;- mutate(heart_disease, 
+                        sex_M = case_when(Sex == &quot;Male&quot; ~ 1,
+                                          TRUE ~ 0),
+                        pain_non = case_when(ChestPain == &quot;Non-anginal pain&quot; ~ 1,
+                                            TRUE ~ 0),
+                        bloodsugar_T = case_when(BloodSugar == TRUE ~ 1,
+                                                 TRUE ~ 0),
+                        HD = case_when(HeartDisease == &quot;Yes&quot; ~ 1,
+                                       TRUE ~ 0)) </code></pre>
 </div>
 <div id="fit-regmedint" class="section level2">
 <h2>2. Fit regmedint()</h2>
@@ -397,20 +401,20 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 <h3>(1) No EMM terms</h3>
 <pre class="r"><code>regmedint_noEMM &lt;- regmedint(data = heart.disease,
                              yvar = &quot;HD&quot;,
-                             avar = &quot;cholesterol&quot;,
-                             mvar = &quot;bp&quot;,
-                             cvar = c(&quot;age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
-                                     &quot;bloodsugar_T&quot;, &quot;maximumHR&quot;),
+                             avar = &quot;Cholesterol&quot;,
+                             mvar = &quot;BP&quot;,
+                             cvar = c(&quot;Age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
+                                     &quot;bloodsugar_T&quot;, &quot;MaximumHR&quot;),
                              emm_ac_mreg = NULL, 
                              emm_ac_yreg = NULL, 
                              emm_mc_yreg = NULL, 
                              eventvar = NULL,
-                             a0 = summary(heart.disease$cholesterol)[2],
-                             a1 = summary(heart.disease$cholesterol)[5],
-                             m_cde = mean(heart.disease$bp),
-                             c_cond = c(mean(heart.disease$age), 
+                             a0 = quantile(heart.disease$Cholesterol, 0.25),
+                             a1 = quantile(heart.disease$Cholesterol, 0.75),
+                             m_cde = mean(heart.disease$BP),
+                             c_cond = c(mean(heart.disease$Age), 
                                         0, 0, 1,
-                                        mean(heart.disease$maximumHR)),
+                                        mean(heart.disease$MaximumHR)),
                              mreg = &quot;linear&quot;,
                              yreg = &quot;loglinear&quot;,
                              interaction = TRUE,
@@ -421,8 +425,8 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 <pre><code>## ### Mediator model
 ## 
 ## Call:
-## lm(formula = bp ~ cholesterol + age + sex_M + pain_non + bloodsugar_T + 
-##     maximumHR, data = data)
+## lm(formula = BP ~ Cholesterol + Age + sex_M + pain_non + bloodsugar_T + 
+##     MaximumHR, data = data)
 ## 
 ## Residuals:
 ##     Min      1Q  Median      3Q     Max 
@@ -431,12 +435,12 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##              Estimate Std. Error t value Pr(&gt;|t|)    
 ## (Intercept)  89.31699   11.86603   7.527 6.29e-13 ***
-## cholesterol   0.02103    0.01942   1.083  0.27972    
-## age           0.53800    0.12038   4.469 1.12e-05 ***
+## Cholesterol   0.02103    0.01942   1.083  0.27972    
+## Age           0.53800    0.12038   4.469 1.12e-05 ***
 ## sex_M        -1.35956    2.13286  -0.637  0.52433    
 ## pain_non     -2.44490    2.18569  -1.119  0.26422    
 ## bloodsugar_T  7.39882    2.74156   2.699  0.00736 ** 
-## maximumHR     0.05626    0.04662   1.207  0.22848    
+## MaximumHR     0.05626    0.04662   1.207  0.22848    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -447,8 +451,8 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## ### Outcome model
 ## 
 ## Call:
-## glm(formula = HD ~ cholesterol + bp + cholesterol:bp + age + 
-##     sex_M + pain_non + bloodsugar_T + maximumHR, family = poisson(link = &quot;log&quot;), 
+## glm(formula = HD ~ Cholesterol + BP + Cholesterol:BP + Age + 
+##     sex_M + pain_non + bloodsugar_T + MaximumHR, family = poisson(link = &quot;log&quot;), 
 ##     data = data)
 ## 
 ## Deviance Residuals: 
@@ -458,14 +462,14 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                  Estimate Std. Error z value Pr(&gt;|z|)    
 ## (Intercept)    -2.320e-01  2.306e+00  -0.101 0.919877    
-## cholesterol    -2.464e-03  8.446e-03  -0.292 0.770457    
-## bp             -3.012e-03  1.746e-02  -0.173 0.862988    
-## age             1.271e-02  7.055e-03   1.802 0.071621 .  
+## Cholesterol    -2.464e-03  8.446e-03  -0.292 0.770457    
+## BP             -3.012e-03  1.746e-02  -0.173 0.862988    
+## Age             1.271e-02  7.055e-03   1.802 0.071621 .  
 ## sex_M           7.440e-01  1.705e-01   4.363 1.28e-05 ***
 ## pain_non       -7.281e-01  2.044e-01  -3.563 0.000367 ***
 ## bloodsugar_T    6.338e-02  1.516e-01   0.418 0.675857    
-## maximumHR      -1.304e-02  2.211e-03  -5.896 3.72e-09 ***
-## cholesterol:bp  3.665e-05  6.297e-05   0.582 0.560619    
+## MaximumHR      -1.304e-02  2.211e-03  -5.896 3.72e-09 ***
+## Cholesterol:BP  3.665e-05  6.297e-05   0.582 0.560619    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -488,12 +492,12 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## pm   0.057068081 0.060053885 0.9502813 0.34196936 -0.060635371 0.17477153
 ## 
 ## Evaluated at:
-## avar: cholesterol
+## avar: Cholesterol
 ##  a1 (intervened value of avar) = 275
 ##  a0 (reference value of avar)  = 211
-## mvar: bp
+## mvar: BP
 ##  m_cde (intervend value of mvar for cde) = 131.6898
-## cvar: age sex_M pain_non bloodsugar_T maximumHR
+## cvar: Age sex_M pain_non bloodsugar_T MaximumHR
 ##  c_cond (covariate vector value) = 54.43894 0 0 1 149.6073
 ## 
 ## Note that effect estimates can vary over m_cde and c_cond values when interaction = TRUE.</code></pre>
@@ -505,20 +509,20 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 </ol>
 <pre class="r"><code>regmedint_age1 &lt;- regmedint(data = heart.disease,
                             yvar = &quot;HD&quot;,
-                            avar = &quot;cholesterol&quot;,
-                            mvar = &quot;bp&quot;,
-                            cvar = c(&quot;age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
-                                     &quot;bloodsugar_T&quot;, &quot;maximumHR&quot;),
-                            emm_ac_mreg = c(&quot;age&quot;), 
-                            emm_ac_yreg = c(&quot;age&quot;), 
-                            emm_mc_yreg = c(&quot;age&quot;), 
+                            avar = &quot;Cholesterol&quot;,
+                            mvar = &quot;BP&quot;,
+                            cvar = c(&quot;Age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
+                                     &quot;bloodsugar_T&quot;, &quot;MaximumHR&quot;),
+                            emm_ac_mreg = c(&quot;Age&quot;), 
+                            emm_ac_yreg = c(&quot;Age&quot;), 
+                            emm_mc_yreg = c(&quot;Age&quot;), 
                             eventvar = NULL,
-                            a0 = summary(heart.disease$cholesterol)[2],
-                            a1 = summary(heart.disease$cholesterol)[5],
-                            m_cde = mean(heart.disease$bp),
-                            c_cond = c(summary(heart.disease$age)[2], 
+                            a0 = quantile(heart.disease$Cholesterol, 0.25),
+                            a1 = quantile(heart.disease$Cholesterol, 0.75),
+                            m_cde = mean(heart.disease$BP),
+                            c_cond = c(quantile(heart.disease$Age, 0.25), 
                                        0, 0, 1,
-                                       mean(heart.disease$maximumHR)),
+                                       mean(heart.disease$MaximumHR)),
                             mreg = &quot;linear&quot;,
                             yreg = &quot;loglinear&quot;,
                             interaction = TRUE,
@@ -529,8 +533,8 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 <pre><code>## ### Mediator model
 ## 
 ## Call:
-## lm(formula = bp ~ cholesterol + age + sex_M + pain_non + bloodsugar_T + 
-##     maximumHR + cholesterol:age, data = data)
+## lm(formula = BP ~ Cholesterol + Age + sex_M + pain_non + bloodsugar_T + 
+##     MaximumHR + Cholesterol:Age, data = data)
 ## 
 ## Residuals:
 ##     Min      1Q  Median      3Q     Max 
@@ -539,13 +543,13 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                  Estimate Std. Error t value Pr(&gt;|t|)   
 ## (Intercept)     54.384088  31.211681   1.742  0.08248 . 
-## cholesterol      0.165108   0.120651   1.368  0.17221   
-## age              1.145709   0.516471   2.218  0.02729 * 
+## Cholesterol      0.165108   0.120651   1.368  0.17221   
+## Age              1.145709   0.516471   2.218  0.02729 * 
 ## sex_M           -1.507966   2.134715  -0.706  0.48050   
 ## pain_non        -2.207722   2.192755  -1.007  0.31484   
 ## bloodsugar_T     7.209900   2.743863   2.628  0.00905 **
-## maximumHR        0.060403   0.046706   1.293  0.19694   
-## cholesterol:age -0.002532   0.002093  -1.210  0.22728   
+## MaximumHR        0.060403   0.046706   1.293  0.19694   
+## Cholesterol:Age -0.002532   0.002093  -1.210  0.22728   
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -556,9 +560,9 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## ### Outcome model
 ## 
 ## Call:
-## glm(formula = HD ~ cholesterol + bp + cholesterol:bp + age + 
-##     sex_M + pain_non + bloodsugar_T + maximumHR + cholesterol:age + 
-##     bp:age, family = poisson(link = &quot;log&quot;), data = data)
+## glm(formula = HD ~ Cholesterol + BP + Cholesterol:BP + Age + 
+##     sex_M + pain_non + bloodsugar_T + MaximumHR + Cholesterol:Age + 
+##     BP:Age, family = poisson(link = &quot;log&quot;), data = data)
 ## 
 ## Deviance Residuals: 
 ##     Min       1Q   Median       3Q      Max  
@@ -567,16 +571,16 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                   Estimate Std. Error z value Pr(&gt;|z|)    
 ## (Intercept)     -1.408e+00  4.145e+00  -0.340 0.734017    
-## cholesterol     -3.862e-04  1.118e-02  -0.035 0.972443    
-## bp               4.435e-04  3.065e-02   0.014 0.988456    
-## age              3.716e-02  6.423e-02   0.579 0.562850    
+## Cholesterol     -3.862e-04  1.118e-02  -0.035 0.972443    
+## BP               4.435e-04  3.065e-02   0.014 0.988456    
+## Age              3.716e-02  6.423e-02   0.579 0.562850    
 ## sex_M            7.436e-01  1.702e-01   4.370 1.24e-05 ***
 ## pain_non        -7.202e-01  2.063e-01  -3.491 0.000481 ***
 ## bloodsugar_T     6.271e-02  1.503e-01   0.417 0.676578    
-## maximumHR       -1.297e-02  2.224e-03  -5.831 5.50e-09 ***
-## cholesterol:bp   4.295e-05  6.324e-05   0.679 0.497053    
-## cholesterol:age -5.142e-05  1.251e-04  -0.411 0.680998    
-## bp:age          -8.953e-05  4.617e-04  -0.194 0.846254    
+## MaximumHR       -1.297e-02  2.224e-03  -5.831 5.50e-09 ***
+## Cholesterol:BP   4.295e-05  6.324e-05   0.679 0.497053    
+## Cholesterol:Age -5.142e-05  1.251e-04  -0.411 0.680998    
+## BP:Age          -8.953e-05  4.617e-04  -0.194 0.846254    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -599,12 +603,12 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## pm   0.11336192 0.11822174 0.9588923 0.33761300 -0.118348434 0.34507227
 ## 
 ## Evaluated at:
-## avar: cholesterol
+## avar: Cholesterol
 ##  a1 (intervened value of avar) = 275
 ##  a0 (reference value of avar)  = 211
-## mvar: bp
+## mvar: BP
 ##  m_cde (intervend value of mvar for cde) = 131.6898
-## cvar: age sex_M pain_non bloodsugar_T maximumHR
+## cvar: Age sex_M pain_non bloodsugar_T MaximumHR
 ##  c_cond (covariate vector value) = 48 0 0 1 149.6073
 ## 
 ## Note that effect estimates can vary over m_cde and c_cond values when interaction = TRUE.</code></pre>
@@ -613,20 +617,20 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 </ol>
 <pre class="r"><code>regmedint_age2 &lt;- regmedint(data = heart.disease,
                             yvar = &quot;HD&quot;,
-                            avar = &quot;cholesterol&quot;,
-                            mvar = &quot;bp&quot;,
-                            cvar = c(&quot;age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
-                                     &quot;bloodsugar_T&quot;, &quot;maximumHR&quot;),
-                            emm_ac_mreg = c(&quot;age&quot;), 
-                            emm_ac_yreg = c(&quot;age&quot;), 
-                            emm_mc_yreg = c(&quot;age&quot;), 
+                            avar = &quot;Cholesterol&quot;,
+                            mvar = &quot;BP&quot;,
+                            cvar = c(&quot;Age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
+                                     &quot;bloodsugar_T&quot;, &quot;MaximumHR&quot;),
+                            emm_ac_mreg = c(&quot;Age&quot;), 
+                            emm_ac_yreg = c(&quot;Age&quot;), 
+                            emm_mc_yreg = c(&quot;Age&quot;), 
                             eventvar = NULL,
-                            a0 = summary(heart.disease$cholesterol)[2],
-                            a1 = summary(heart.disease$cholesterol)[5],
-                            m_cde = mean(heart.disease$bp),
-                            c_cond = c(summary(heart.disease$age)[5], 
+                            a0 = quantile(heart.disease$Cholesterol, 0.25),
+                            a1 = quantile(heart.disease$Cholesterol, 0.75),
+                            m_cde = mean(heart.disease$BP),
+                            c_cond = c(quantile(heart.disease$Age, 0.75), 
                                        0, 0, 1, 
-                                       mean(heart.disease$maximumHR)),
+                                       mean(heart.disease$MaximumHR)),
                             mreg = &quot;linear&quot;,
                             yreg = &quot;loglinear&quot;,
                             interaction = TRUE,
@@ -637,8 +641,8 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 <pre><code>## ### Mediator model
 ## 
 ## Call:
-## lm(formula = bp ~ cholesterol + age + sex_M + pain_non + bloodsugar_T + 
-##     maximumHR + cholesterol:age, data = data)
+## lm(formula = BP ~ Cholesterol + Age + sex_M + pain_non + bloodsugar_T + 
+##     MaximumHR + Cholesterol:Age, data = data)
 ## 
 ## Residuals:
 ##     Min      1Q  Median      3Q     Max 
@@ -647,13 +651,13 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                  Estimate Std. Error t value Pr(&gt;|t|)   
 ## (Intercept)     54.384088  31.211681   1.742  0.08248 . 
-## cholesterol      0.165108   0.120651   1.368  0.17221   
-## age              1.145709   0.516471   2.218  0.02729 * 
+## Cholesterol      0.165108   0.120651   1.368  0.17221   
+## Age              1.145709   0.516471   2.218  0.02729 * 
 ## sex_M           -1.507966   2.134715  -0.706  0.48050   
 ## pain_non        -2.207722   2.192755  -1.007  0.31484   
 ## bloodsugar_T     7.209900   2.743863   2.628  0.00905 **
-## maximumHR        0.060403   0.046706   1.293  0.19694   
-## cholesterol:age -0.002532   0.002093  -1.210  0.22728   
+## MaximumHR        0.060403   0.046706   1.293  0.19694   
+## Cholesterol:Age -0.002532   0.002093  -1.210  0.22728   
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -664,9 +668,9 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## ### Outcome model
 ## 
 ## Call:
-## glm(formula = HD ~ cholesterol + bp + cholesterol:bp + age + 
-##     sex_M + pain_non + bloodsugar_T + maximumHR + cholesterol:age + 
-##     bp:age, family = poisson(link = &quot;log&quot;), data = data)
+## glm(formula = HD ~ Cholesterol + BP + Cholesterol:BP + Age + 
+##     sex_M + pain_non + bloodsugar_T + MaximumHR + Cholesterol:Age + 
+##     BP:Age, family = poisson(link = &quot;log&quot;), data = data)
 ## 
 ## Deviance Residuals: 
 ##     Min       1Q   Median       3Q      Max  
@@ -675,16 +679,16 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                   Estimate Std. Error z value Pr(&gt;|z|)    
 ## (Intercept)     -1.408e+00  4.145e+00  -0.340 0.734017    
-## cholesterol     -3.862e-04  1.118e-02  -0.035 0.972443    
-## bp               4.435e-04  3.065e-02   0.014 0.988456    
-## age              3.716e-02  6.423e-02   0.579 0.562850    
+## Cholesterol     -3.862e-04  1.118e-02  -0.035 0.972443    
+## BP               4.435e-04  3.065e-02   0.014 0.988456    
+## Age              3.716e-02  6.423e-02   0.579 0.562850    
 ## sex_M            7.436e-01  1.702e-01   4.370 1.24e-05 ***
 ## pain_non        -7.202e-01  2.063e-01  -3.491 0.000481 ***
 ## bloodsugar_T     6.271e-02  1.503e-01   0.417 0.676578    
-## maximumHR       -1.297e-02  2.224e-03  -5.831 5.50e-09 ***
-## cholesterol:bp   4.295e-05  6.324e-05   0.679 0.497053    
-## cholesterol:age -5.142e-05  1.251e-04  -0.411 0.680998    
-## bp:age          -8.953e-05  4.617e-04  -0.194 0.846254    
+## MaximumHR       -1.297e-02  2.224e-03  -5.831 5.50e-09 ***
+## Cholesterol:BP   4.295e-05  6.324e-05   0.679 0.497053    
+## Cholesterol:Age -5.142e-05  1.251e-04  -0.411 0.680998    
+## BP:Age          -8.953e-05  4.617e-04  -0.194 0.846254    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -707,12 +711,12 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## pm   0.028663337 0.057827175 0.4956724 0.62012554 -0.0846758440 0.14200252
 ## 
 ## Evaluated at:
-## avar: cholesterol
+## avar: Cholesterol
 ##  a1 (intervened value of avar) = 275
 ##  a0 (reference value of avar)  = 211
-## mvar: bp
+## mvar: BP
 ##  m_cde (intervend value of mvar for cde) = 131.6898
-## cvar: age sex_M pain_non bloodsugar_T maximumHR
+## cvar: Age sex_M pain_non bloodsugar_T MaximumHR
 ##  c_cond (covariate vector value) = 61 0 0 1 149.6073
 ## 
 ## Note that effect estimates can vary over m_cde and c_cond values when interaction = TRUE.</code></pre>
@@ -724,20 +728,20 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 </ol>
 <pre class="r"><code>regmedint_sex1 &lt;- regmedint(data = heart.disease,
                             yvar = &quot;HD&quot;,
-                            avar = &quot;cholesterol&quot;,
-                            mvar = &quot;bp&quot;,
-                            cvar = c(&quot;age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
-                                     &quot;bloodsugar_T&quot;, &quot;maximumHR&quot;),
+                            avar = &quot;Cholesterol&quot;,
+                            mvar = &quot;BP&quot;,
+                            cvar = c(&quot;Age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
+                                     &quot;bloodsugar_T&quot;, &quot;MaximumHR&quot;),
                             emm_ac_mreg = c(&quot;sex_M&quot;), 
                             emm_ac_yreg = c(&quot;sex_M&quot;), 
                             emm_mc_yreg = c(&quot;sex_M&quot;), 
                             eventvar = NULL,
-                            a0 = summary(heart.disease$cholesterol)[2],
-                            a1 = summary(heart.disease$cholesterol)[5],
-                            m_cde = mean(heart.disease$bp),
-                            c_cond = c(summary(heart.disease$age)[2], 
+                            a0 = quantile(heart.disease$Cholesterol, 0.25),
+                            a1 = quantile(heart.disease$Cholesterol, 0.75),
+                            m_cde = mean(heart.disease$BP),
+                            c_cond = c(mean(heart.disease$Age), 
                                        1, 0, 1,
-                                       mean(heart.disease$maximumHR)),
+                                       mean(heart.disease$MaximumHR)),
                             mreg = &quot;linear&quot;,
                             yreg = &quot;loglinear&quot;,
                             interaction = TRUE,
@@ -748,8 +752,8 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 <pre><code>## ### Mediator model
 ## 
 ## Call:
-## lm(formula = bp ~ cholesterol + age + sex_M + pain_non + bloodsugar_T + 
-##     maximumHR + cholesterol:sex_M, data = data)
+## lm(formula = BP ~ Cholesterol + Age + sex_M + pain_non + bloodsugar_T + 
+##     MaximumHR + Cholesterol:sex_M, data = data)
 ## 
 ## Residuals:
 ##     Min      1Q  Median      3Q     Max 
@@ -758,13 +762,13 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                     Estimate Std. Error t value Pr(&gt;|t|)    
 ## (Intercept)       89.2725104 12.6330995   7.067 1.15e-11 ***
-## cholesterol        0.0212201  0.0268045   0.792  0.42919    
-## age                0.5379639  0.1206327   4.460 1.17e-05 ***
+## Cholesterol        0.0212201  0.0268045   0.792  0.42919    
+## Age                0.5379639  0.1206327   4.460 1.17e-05 ***
 ## sex_M             -1.2601997  9.7947227  -0.129  0.89771    
 ## pain_non          -2.4458242  2.1911778  -1.116  0.26524    
 ## bloodsugar_T       7.3966098  2.7543987   2.685  0.00765 ** 
-## maximumHR          0.0562368  0.0467361   1.203  0.22983    
-## cholesterol:sex_M -0.0003975  0.0382464  -0.010  0.99171    
+## MaximumHR          0.0562368  0.0467361   1.203  0.22983    
+## Cholesterol:sex_M -0.0003975  0.0382464  -0.010  0.99171    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -775,9 +779,9 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## ### Outcome model
 ## 
 ## Call:
-## glm(formula = HD ~ cholesterol + bp + cholesterol:bp + age + 
-##     sex_M + pain_non + bloodsugar_T + maximumHR + cholesterol:sex_M + 
-##     bp:sex_M, family = poisson(link = &quot;log&quot;), data = data)
+## glm(formula = HD ~ Cholesterol + BP + Cholesterol:BP + Age + 
+##     sex_M + pain_non + bloodsugar_T + MaximumHR + Cholesterol:sex_M + 
+##     BP:sex_M, family = poisson(link = &quot;log&quot;), data = data)
 ## 
 ## Deviance Residuals: 
 ##     Min       1Q   Median       3Q      Max  
@@ -786,16 +790,16 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                     Estimate Std. Error z value Pr(&gt;|z|)    
 ## (Intercept)       -4.434e+00  2.422e+00  -1.831 0.067149 .  
-## cholesterol        4.975e-03  8.368e-03   0.594 0.552188    
-## bp                 2.701e-02  1.778e-02   1.520 0.128607    
-## age                1.311e-02  7.037e-03   1.863 0.062479 .  
+## Cholesterol        4.975e-03  8.368e-03   0.594 0.552188    
+## BP                 2.701e-02  1.778e-02   1.520 0.128607    
+## Age                1.311e-02  7.037e-03   1.863 0.062479 .  
 ## sex_M              3.874e+00  1.132e+00   3.421 0.000625 ***
 ## pain_non          -6.756e-01  2.066e-01  -3.271 0.001072 ** 
 ## bloodsugar_T       2.294e-02  1.519e-01   0.151 0.879985    
-## maximumHR         -1.308e-02  2.267e-03  -5.771 7.86e-09 ***
-## cholesterol:bp    -1.784e-05  5.948e-05  -0.300 0.764292    
-## cholesterol:sex_M -4.297e-04  2.472e-03  -0.174 0.861986    
-## bp:sex_M          -2.162e-02  6.592e-03  -3.281 0.001036 ** 
+## MaximumHR         -1.308e-02  2.267e-03  -5.771 7.86e-09 ***
+## Cholesterol:BP    -1.784e-05  5.948e-05  -0.300 0.764292    
+## Cholesterol:sex_M -4.297e-04  2.472e-03  -0.174 0.861986    
+## BP:sex_M          -2.162e-02  6.592e-03  -3.281 0.001036 ** 
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -810,21 +814,21 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## ### Mediation analysis 
 ##               est          se         Z          p        lower      upper
 ## cde  0.1405561671 0.073737493 1.9061696 0.05662820 -0.003966663 0.28507900
-## pnde 0.1375379062 0.073164896 1.8798347 0.06013062 -0.005862654 0.28093847
+## pnde 0.1335840374 0.074406544 1.7953265 0.07260170 -0.012250108 0.27941818
 ## tnie 0.0006445522 0.004781363 0.1348051 0.89276596 -0.008726747 0.01001585
-## tnde 0.1360167680 0.073341458 1.8545686 0.06365785 -0.007729849 0.27976338
+## tnde 0.1320628992 0.075467885 1.7499218 0.08013181 -0.015851438 0.27997724
 ## pnie 0.0021656904 0.006757399 0.3204917 0.74859562 -0.011078569 0.01540995
-## te   0.1381824584 0.073266201 1.8860328 0.05929053 -0.005416656 0.28178157
-## pm   0.0049925874 0.036973104 0.1350330 0.89258582 -0.067473365 0.07745854
+## te   0.1342285896 0.074690882 1.7971215 0.07231634 -0.012162850 0.28062003
+## pm   0.0051297297 0.037890195 0.1353841 0.89230820 -0.069133688 0.07939315
 ## 
 ## Evaluated at:
-## avar: cholesterol
+## avar: Cholesterol
 ##  a1 (intervened value of avar) = 275
 ##  a0 (reference value of avar)  = 211
-## mvar: bp
+## mvar: BP
 ##  m_cde (intervend value of mvar for cde) = 131.6898
-## cvar: age sex_M pain_non bloodsugar_T maximumHR
-##  c_cond (covariate vector value) = 48 1 0 1 149.6073
+## cvar: Age sex_M pain_non bloodsugar_T MaximumHR
+##  c_cond (covariate vector value) = 54.43894 1 0 1 149.6073
 ## 
 ## Note that effect estimates can vary over m_cde and c_cond values when interaction = TRUE.</code></pre>
 <ol start="2" style="list-style-type: lower-alpha">
@@ -832,20 +836,20 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 </ol>
 <pre class="r"><code>regmedint_sex2 &lt;- regmedint(data = heart.disease,
                             yvar = &quot;HD&quot;,
-                            avar = &quot;cholesterol&quot;,
-                            mvar = &quot;bp&quot;,
-                            cvar = c(&quot;age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
-                                     &quot;bloodsugar_T&quot;, &quot;maximumHR&quot;),
+                            avar = &quot;Cholesterol&quot;,
+                            mvar = &quot;BP&quot;,
+                            cvar = c(&quot;Age&quot;, &quot;sex_M&quot;, &quot;pain_non&quot;,
+                                     &quot;bloodsugar_T&quot;, &quot;MaximumHR&quot;),
                             emm_ac_mreg = c(&quot;sex_M&quot;), 
                             emm_ac_yreg = c(&quot;sex_M&quot;), 
                             emm_mc_yreg = c(&quot;sex_M&quot;), 
                             eventvar = NULL,
-                            a0 = summary(heart.disease$cholesterol)[2],
-                            a1 = summary(heart.disease$cholesterol)[5],
-                            m_cde = mean(heart.disease$bp),
-                            c_cond = c(summary(heart.disease$age)[2], 
+                            a0 = quantile(heart.disease$Cholesterol, 0.25),
+                            a1 = quantile(heart.disease$Cholesterol, 0.75),
+                            m_cde = mean(heart.disease$BP),
+                            c_cond = c(mean(heart.disease$Age), 
                                        0, 0, 1,
-                                       mean(heart.disease$maximumHR)),
+                                       mean(heart.disease$MaximumHR)),
                             mreg = &quot;linear&quot;,
                             yreg = &quot;loglinear&quot;,
                             interaction = TRUE,
@@ -856,8 +860,8 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 <pre><code>## ### Mediator model
 ## 
 ## Call:
-## lm(formula = bp ~ cholesterol + age + sex_M + pain_non + bloodsugar_T + 
-##     maximumHR + cholesterol:sex_M, data = data)
+## lm(formula = BP ~ Cholesterol + Age + sex_M + pain_non + bloodsugar_T + 
+##     MaximumHR + Cholesterol:sex_M, data = data)
 ## 
 ## Residuals:
 ##     Min      1Q  Median      3Q     Max 
@@ -866,13 +870,13 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                     Estimate Std. Error t value Pr(&gt;|t|)    
 ## (Intercept)       89.2725104 12.6330995   7.067 1.15e-11 ***
-## cholesterol        0.0212201  0.0268045   0.792  0.42919    
-## age                0.5379639  0.1206327   4.460 1.17e-05 ***
+## Cholesterol        0.0212201  0.0268045   0.792  0.42919    
+## Age                0.5379639  0.1206327   4.460 1.17e-05 ***
 ## sex_M             -1.2601997  9.7947227  -0.129  0.89771    
 ## pain_non          -2.4458242  2.1911778  -1.116  0.26524    
 ## bloodsugar_T       7.3966098  2.7543987   2.685  0.00765 ** 
-## maximumHR          0.0562368  0.0467361   1.203  0.22983    
-## cholesterol:sex_M -0.0003975  0.0382464  -0.010  0.99171    
+## MaximumHR          0.0562368  0.0467361   1.203  0.22983    
+## Cholesterol:sex_M -0.0003975  0.0382464  -0.010  0.99171    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -883,9 +887,9 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## ### Outcome model
 ## 
 ## Call:
-## glm(formula = HD ~ cholesterol + bp + cholesterol:bp + age + 
-##     sex_M + pain_non + bloodsugar_T + maximumHR + cholesterol:sex_M + 
-##     bp:sex_M, family = poisson(link = &quot;log&quot;), data = data)
+## glm(formula = HD ~ Cholesterol + BP + Cholesterol:BP + Age + 
+##     sex_M + pain_non + bloodsugar_T + MaximumHR + Cholesterol:sex_M + 
+##     BP:sex_M, family = poisson(link = &quot;log&quot;), data = data)
 ## 
 ## Deviance Residuals: 
 ##     Min       1Q   Median       3Q      Max  
@@ -894,16 +898,16 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## Coefficients:
 ##                     Estimate Std. Error z value Pr(&gt;|z|)    
 ## (Intercept)       -4.434e+00  2.422e+00  -1.831 0.067149 .  
-## cholesterol        4.975e-03  8.368e-03   0.594 0.552188    
-## bp                 2.701e-02  1.778e-02   1.520 0.128607    
-## age                1.311e-02  7.037e-03   1.863 0.062479 .  
+## Cholesterol        4.975e-03  8.368e-03   0.594 0.552188    
+## BP                 2.701e-02  1.778e-02   1.520 0.128607    
+## Age                1.311e-02  7.037e-03   1.863 0.062479 .  
 ## sex_M              3.874e+00  1.132e+00   3.421 0.000625 ***
 ## pain_non          -6.756e-01  2.066e-01  -3.271 0.001072 ** 
 ## bloodsugar_T       2.294e-02  1.519e-01   0.151 0.879985    
-## maximumHR         -1.308e-02  2.267e-03  -5.771 7.86e-09 ***
-## cholesterol:bp    -1.784e-05  5.948e-05  -0.300 0.764292    
-## cholesterol:sex_M -4.297e-04  2.472e-03  -0.174 0.861986    
-## bp:sex_M          -2.162e-02  6.592e-03  -3.281 0.001036 ** 
+## MaximumHR         -1.308e-02  2.267e-03  -5.771 7.86e-09 ***
+## Cholesterol:BP    -1.784e-05  5.948e-05  -0.300 0.764292    
+## Cholesterol:sex_M -4.297e-04  2.472e-03  -0.174 0.861986    
+## BP:sex_M          -2.162e-02  6.592e-03  -3.281 0.001036 ** 
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
@@ -918,21 +922,21 @@ heart.disease &lt;- cbind.data.frame(age, sex_M, pain_typical, pain_atypical, pa
 ## ### Mediation analysis 
 ##             est         se         Z         p       lower     upper
 ## cde  0.16805614 0.14239468 1.1802136 0.2379153 -0.11103230 0.4471446
-## pnde 0.15657845 0.14390898 1.0880381 0.2765783 -0.12547796 0.4386349
+## pnde 0.15262458 0.14666909 1.0406050 0.2980589 -0.13484154 0.4400907
 ## tnie 0.03002390 0.03868480 0.7761162 0.4376804 -0.04579692 0.1058447
-## tnde 0.15502827 0.14484890 1.0702758 0.2844952 -0.12887035 0.4389269
+## tnde 0.15107440 0.14805062 1.0204240 0.3075274 -0.13909947 0.4412483
 ## pnie 0.03157408 0.04102243 0.7696785 0.4414906 -0.04882840 0.1119766
-## te   0.18660235 0.14814734 1.2595727 0.2078235 -0.10376110 0.4769658
-## pm   0.17375487 0.22622296 0.7680691 0.4424461 -0.26963399 0.6171437
+## te   0.18264849 0.15080634 1.2111460 0.2258395 -0.11292650 0.4782235
+## pm   0.17717639 0.23308921 0.7601227 0.4471813 -0.27967007 0.6340229
 ## 
 ## Evaluated at:
-## avar: cholesterol
+## avar: Cholesterol
 ##  a1 (intervened value of avar) = 275
 ##  a0 (reference value of avar)  = 211
-## mvar: bp
+## mvar: BP
 ##  m_cde (intervend value of mvar for cde) = 131.6898
-## cvar: age sex_M pain_non bloodsugar_T maximumHR
-##  c_cond (covariate vector value) = 48 0 0 1 149.6073
+## cvar: Age sex_M pain_non bloodsugar_T MaximumHR
+##  c_cond (covariate vector value) = 54.43894 0 0 1 149.6073
 ## 
 ## Note that effect estimates can vary over m_cde and c_cond values when interaction = TRUE.</code></pre>
 </div>
