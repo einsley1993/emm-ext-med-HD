@@ -1,0 +1,124 @@
+---
+title: "EMM CANTOS"
+author: "Yi Li"
+date: "24/09/2022"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(regmedint)
+```
+
+## 0. Data Source
+Original paper: Vallurupalli M, MacFadyen JG, Glynn RJ, et al. Effects of Interleukin-1$\beta$ Inhibition on Incident Anemia: Exploratory Analyses From a Randomized Trial. Ann Intern Med. 2020;172(8):523. doi:10.7326/M19-2945
+
+```{r}
+setwd("/Users/yili/Desktop/_cantos_analyses/Anemia outcome")
+
+anemia3 <- read.csv("~/Desktop/_cantos_analyses/Anemia outcome/anemia3.csv", header = FALSE)
+
+colnames(anemia3) <- c("canakinumab", "age", "female", "base_logCRP", 
+                       "chf", "htn", "dm", "egfrlo", "3mo_logCRP_100", 
+                       "anemiaev", "anemiayrs"
+                       )
+
+anemia3$diff_logCRP <- anemia3$`3mo_logCRP_100`/100 - anemia3$base_logCRP
+```
+
+## 1. Variables
+Treatment: canakinumab use (binary)
+
+Mediator: change in log CRP (continuous)
+
+Outcome: anemia (survival time)
+
+Baseline confounders: age, sex, baseline log CRP, heart failure, hypertension, diabetes
+
+## 2. Directed Acyclic Graph
+
+
+
+```{r}
+c_cond0_mean <- sapply(anemia3[, c("age", "female", "base_logCRP", 
+                              "chf", "htn", "dm")], mean)
+c_cond0_mean
+
+# Condition on other non-EMM covariates:
+# female = 0, chf (heart failure) = 0, htn (hyptertention) = 1
+c_cond0 <- c(mean(anemia3$age), 0, mean(anemia3$base_logCRP), 0, 1, 0)
+c_cond0
+```
+
+## 3. Mediation analyses
+### Effect modification by baseline logCRP in mediator model, and age & diabetes in outcome model 
+#### 1. Specify low and high risk groups' covariate levels
+```{r}
+c_cond_low_all <- c_cond_high_all <- c_cond0
+c_cond_low_all[c(1, 3, 6)] <- c(quantile(anemia3$age, 0.25), 
+                                quantile(anemia3$base_logCRP, 0.25), 
+                                0)
+c_cond_high_all[c(1, 3, 6)] <- c(quantile(anemia3$age, 0.75), 
+                                 quantile(anemia3$base_logCRP, 0.75), 
+                                 1)
+
+c_cond_low_all
+c_cond_high_all
+```
+
+#### 2. Fit regmedint function
+```{r}
+cvar = c("age", "female", "base_logCRP", 
+         "chf", "htn", "dm")
+
+fit1.1 <- regmedint(data = anemia3,
+                    yvar = "anemiayrs",
+                    eventvar = "anemiaev",
+                    avar = "canakinumab",
+                    mvar = "diff_logCRP",
+                    cvar = cvar,
+                    ## EMM
+                    emm_ac_mreg = c("base_logCRP"),
+                    emm_ac_yreg = NULL,
+                    emm_mc_yreg = c("age", "dm"),
+                    ##
+                    mreg = "linear",
+                    yreg = "survAFT_weibull",
+                    interaction = TRUE,
+                    casecontrol = FALSE,
+                    a0 = 0,
+                    a1 = 1,
+                    m_cde = mean(anemia3$diff_logCRP),
+                    c_cond = c_cond_low_all)
+
+fit1.2 <- regmedint(data = anemia3,
+                    yvar = "anemiayrs",
+                    eventvar = "anemiaev",
+                    avar = "canakinumab",
+                    mvar = "diff_logCRP",
+                    cvar = cvar,
+                    ## EMM
+                    emm_ac_mreg = c("base_logCRP"),
+                    emm_ac_yreg = NULL,
+                    emm_mc_yreg = c("age", "dm"),
+                    ##
+                    mreg = "linear",
+                    yreg = "survAFT_weibull",
+                    interaction = TRUE,
+                    casecontrol = FALSE,
+                    a0 = 0,
+                    a1 = 1,
+                    m_cde = mean(anemia3$diff_logCRP),
+                    c_cond = c_cond_high_all)
+
+summary(fit1.1)
+summary(fit1.2)
+```
+
+
